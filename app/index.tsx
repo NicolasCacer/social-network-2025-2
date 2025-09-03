@@ -180,6 +180,7 @@ const styles = StyleSheet.create({
     height: 90,
     resizeMode: "contain",
     marginBottom: 8,
+    marginTop: 80,
   },
   brandText: {
     color: "#fff",
