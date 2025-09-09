@@ -2,6 +2,7 @@ import React from "react";
 import {
   FlatList,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -12,11 +13,14 @@ const posts = [
   { id: "1", image: "https://picsum.photos/300/200" },
   { id: "2", image: "https://picsum.photos/301/200" },
   { id: "3", image: "https://picsum.photos/302/200" },
+  { id: "4", image: "https://picsum.photos/300/200" },
+  { id: "5", image: "https://picsum.photos/301/200" },
+  { id: "6", image: "https://picsum.photos/302/200" },
 ];
 
 export default function Profile() {
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       {/* Header con datos */}
       <View style={styles.header}>
         <Image
@@ -59,10 +63,23 @@ export default function Profile() {
           <Image source={{ uri: item.image }} style={styles.postImage} />
         )}
         horizontal
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator={true}
         contentContainerStyle={styles.postsRow}
       />
-    </View>
+      <View style={styles.favouritePosts}>
+        <Text style={styles.sectionTitle}>My Favourites</Text>
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <Image source={{ uri: item.image }} style={styles.postImage} />
+          )}
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={styles.postsRow}
+        />
+      </View>
+    </ScrollView>
   );
 }
 
@@ -146,11 +163,22 @@ const styles = StyleSheet.create({
   },
   postsRow: {
     paddingLeft: 16,
+    margin: 0,
   },
   postImage: {
-    width: 120,
-    height: 120,
+    width: 200,
+    height: 200,
     borderRadius: 10,
     marginRight: 12,
+  },
+  favouritePosts: {
+    flex: 1,
+    alignItems: "flex-start",
+    justifyContent: "flex-start",
+    marginTop: 10,
+    marginBottom: 20,
+    fontSize: 16,
+    fontWeight: "900",
+    color: "#333640",
   },
 });
