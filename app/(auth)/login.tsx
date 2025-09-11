@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -13,12 +13,21 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { AuthContext } from "../../context/AuthContext";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
+  const context = useContext(AuthContext);
+
   const router = useRouter();
+
+  const handleLogin = () => {
+    if (context.login(username, password)) {
+      router.push("/(main)/main");
+    }
+  };
 
   return (
     // View with background linear gradient
@@ -99,7 +108,7 @@ export default function LoginScreen() {
             {/* Login button */}
             <TouchableOpacity
               style={styles.loginBtn}
-              onPress={() => router.push("/(main)/main")}
+              onPress={() => handleLogin()}
             >
               <Text style={styles.loginText}>Login</Text>
             </TouchableOpacity>

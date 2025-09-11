@@ -1,5 +1,6 @@
-import { Video } from "expo-av";
-import React, { useRef, useState } from "react";
+import { LinearGradient } from "expo-linear-gradient";
+import { VideoView, useVideoPlayer } from "expo-video";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Dimensions,
   FlatList,
@@ -29,18 +30,62 @@ const reelsData = [
   },
 ];
 
-const channels = [
-  { id: "c1", avatar: "https://i.pravatar.cc/150?img=11", name: "canal1" },
-  { id: "c2", avatar: "https://i.pravatar.cc/150?img=12", name: "canal2" },
-  { id: "c3", avatar: "https://i.pravatar.cc/150?img=13", name: "canal3" },
-  { id: "c4", avatar: "https://i.pravatar.cc/150?img=14", name: "canal4" },
-  { id: "c5", avatar: "https://i.pravatar.cc/150?img=15", name: "canal5" },
-];
+function ReelItem({
+  item,
+  isActive,
+  reelHeight,
+}: {
+  item: any;
+  isActive: boolean;
+  reelHeight: number;
+}) {
+  const player = useVideoPlayer(item.video, (p) => {
+    p.loop = true;
+  });
+
+  useEffect(() => {
+    if (isActive) {
+      player.play();
+    } else {
+      player.pause();
+    }
+  }, [isActive]);
+
+  return (
+    <View style={[styles.reelContainer, { height: reelHeight }]}>
+      <VideoView
+        player={player}
+        style={styles.video}
+        contentFit="cover"
+        fullscreenOptions={{ enable: false }}
+        allowsPictureInPicture={false}
+      />
+
+      {/* Gradiente en la parte inferior para legibilidad */}
+      <LinearGradient
+        colors={["transparent", "rgba(0,0,0,0.6)"]}
+        style={styles.gradient}
+      />
+
+      {/* Overlay con user + caption */}
+      <View style={styles.overlay}>
+        <Image source={{ uri: item.avatar }} style={styles.avatar} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.user}>@{item.user}</Text>
+          <Text style={styles.caption}>{item.caption}</Text>
+        </View>
+      </View>
+    </View>
+  );
+}
 
 export default function ReelsScreen() {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const videoRefs = useRef<(Video | null)[]>([]);
-  const insets = useSafeAreaInsets(); // 👉 detecta espacio seguro (incluye tab bar en iOS/Android)
+  const insets = useSafeAreaInsets();
+
+  // 🟢 Ajustamos altura disponible (quita header y tabs)
+  const availableHeight = height - insets.top - insets.bottom - 100;
+  // 👆 el `-100` lo puedes ajustar según el alto de tus Tabs/Header
 
   const onViewableItemsChanged = useRef(({ viewableItems }: any) => {
     if (viewableItems.length > 0) {
@@ -52,108 +97,66 @@ export default function ReelsScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Lista vertical de reels */}
       <FlatList
         data={reelsData}
         keyExtractor={(item) => item.id}
         renderItem={({ item, index }) => (
-          <View style={styles.reelContainer}>
-            <Video
-              ref={(ref) => (videoRefs.current[index] = ref)}
-              source={{ uri: item.video }}
-              style={styles.video}
-              resizeMode="contain"
-              shouldPlay={index === currentIndex}
-              isLooping
-            />
-
-            {/* Overlay con avatar y caption */}
-            <View style={styles.overlay}>
-              <Image source={{ uri: item.avatar }} style={styles.avatar} />
-              <View>
-                <Text style={styles.user}>@{item.user}</Text>
-                <Text style={styles.caption}>{item.caption}</Text>
-              </View>
-            </View>
-          </View>
+          <ReelItem
+            item={item}
+            isActive={index === currentIndex}
+            reelHeight={availableHeight}
+          />
         )}
         pagingEnabled
-        horizontal={false}
         showsVerticalScrollIndicator={false}
-        snapToInterval={height * 0.7} // reel ocupa 70% pantalla
+        snapToInterval={availableHeight}
         decelerationRate="fast"
         onViewableItemsChanged={onViewableItemsChanged.current}
         viewabilityConfig={viewConfig.current}
-        contentContainerStyle={{ paddingBottom: insets.bottom + 70 }}
-        // 👆 espacio extra para que no choque con la tab bar
+        getItemLayout={(_, index) => ({
+          length: availableHeight,
+          offset: availableHeight * index,
+          index,
+        })}
+        contentContainerStyle={{
+          paddingBottom: insets.bottom + 40, // deja aire sobre tabs
+        }}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#000",
-  },
-  channelsContainer: {
-    height: 100,
-    paddingVertical: 10,
-    borderBottomWidth: 0.5,
-    borderBottomColor: "#333",
-  },
-  channelItem: {
-    alignItems: "center",
-    marginHorizontal: 10,
-  },
-  channelAvatar: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 2,
-    borderColor: "#fff",
-  },
-  channelName: {
-    marginTop: 5,
-    fontSize: 12,
-    color: "#fff",
-  },
+  container: { flex: 1, backgroundColor: "#000" },
   reelContainer: {
     width,
-    height: height * 0.7,
     justifyContent: "center",
     alignItems: "center",
-    marginVertical: 10,
-    marginBottom: 50,
-    borderRadius: 15,
     overflow: "hidden",
   },
-  video: {
-    width: "100%",
-    height: "100%",
+  video: { width: "100%", height: "100%" },
+  gradient: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    height: 200,
   },
   overlay: {
     position: "absolute",
-    bottom: 20,
+    bottom: 40,
     left: 20,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-end",
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    marginRight: 12,
     borderWidth: 1,
     borderColor: "#fff",
   },
-  user: {
-    color: "#fff",
-    fontWeight: "bold",
-    fontSize: 16,
-  },
-  caption: {
-    color: "#fff",
-    fontSize: 14,
-  },
+  user: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+  caption: { color: "#fff", fontSize: 14, marginTop: 2, flexWrap: "wrap" },
 });
