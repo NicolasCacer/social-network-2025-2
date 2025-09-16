@@ -4,6 +4,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useContext, useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,37 +17,37 @@ import {
 import { AuthContext } from "../../context/AuthContext";
 
 export default function LoginScreen() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(""); // 👈 ahora es email
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const context = useContext(AuthContext);
 
   const router = useRouter();
 
-  const handleLogin = () => {
-    if (context.login(username, password)) {
+  const handleLogin = async () => {
+    const success = await context.login(email, password);
+    if (success) {
       router.push("/(main)/main");
+    } else {
+      Alert.alert("Error", "Credenciales incorrectas. Intenta de nuevo.");
     }
   };
 
   return (
-    // View with background linear gradient
     <LinearGradient
       colors={["#32408C", "#B4B9D9", "#B4B9D9"]}
       style={styles.container}
     >
-      {/* Special View that self aligns in IOS to avoid keyboard hidding the inputs */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.flex}
       >
-        {/* Scrollable view that fits the content to smaller screens */}
         <ScrollView
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled" //Handled exits keyboard when clicked outside an clickable object
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={true}
-          bounces={false} // iOS avoids overscroll
-          overScrollMode="never" // avoids the highlight in Android
+          bounces={false}
+          overScrollMode="never"
         >
           {/* Logo + Name */}
           <View style={styles.header}>
@@ -63,19 +64,22 @@ export default function LoginScreen() {
           <View style={styles.body}>
             <Text style={styles.title}>Welcome!</Text>
 
-            {/* Username input */}
+            {/* Email input */}
             <View style={styles.inputWrap}>
-              <Feather name="user" size={18} style={styles.inputIcon} />
+              <Feather name="mail" size={18} style={styles.inputIcon} />
               <TextInput
-                placeholder="Username"
+                placeholder="Email"
                 placeholderTextColor="#BDBDBD"
-                value={username}
-                onChangeText={setUsername}
+                value={email}
+                onChangeText={setEmail}
                 style={styles.input}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                autoComplete="email"
               />
             </View>
 
-            {/* Password input*/}
+            {/* Password input */}
             <View style={styles.inputWrap}>
               <Feather name="lock" size={18} style={styles.inputIcon} />
               <TextInput
@@ -106,10 +110,7 @@ export default function LoginScreen() {
             </View>
 
             {/* Login button */}
-            <TouchableOpacity
-              style={styles.loginBtn}
-              onPress={() => handleLogin()}
-            >
+            <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
               <Text style={styles.loginText}>Login</Text>
             </TouchableOpacity>
 
@@ -136,7 +137,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: "flex-end",
   },
-
   header: {
     alignItems: "center",
     marginBottom: 80,
@@ -152,7 +152,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "700",
   },
-
   body: {
     backgroundColor: "#fff",
     borderTopLeftRadius: 30,
@@ -166,7 +165,6 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     color: "#2E38F2",
   },
-
   inputWrap: {
     width: "100%",
     backgroundColor: "#F3F5F8",
@@ -185,7 +183,6 @@ const styles = StyleSheet.create({
   inputIcon: { marginRight: 10, color: "#9AA0A6" },
   input: { flex: 1, fontSize: 18, paddingVertical: 8, color: "#222" },
   eyeBtn: { padding: 6 },
-
   row: {
     width: "100%",
     flexDirection: "row",
@@ -208,11 +205,9 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 20,
   },
-
   signUpRow: { flexDirection: "row", alignItems: "center", marginBottom: 130 },
   smallText: { color: "#9DA3A9" },
   linkText: { color: "#3037BF", fontWeight: "700" },
-
   forgotText: {
     opacity: 0.5,
   },

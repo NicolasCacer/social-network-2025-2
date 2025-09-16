@@ -1,10 +1,13 @@
+import { AuthContext } from "@/context/AuthContext";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Tabs, useRouter } from "expo-router";
+import { useContext } from "react";
 import { TouchableOpacity } from "react-native";
 
 export default function TabsLayout() {
   const router = useRouter();
+  const { logout } = useContext(AuthContext);
   return (
     <Tabs
       screenOptions={{
@@ -13,8 +16,8 @@ export default function TabsLayout() {
         headerRight: () => (
           <TouchableOpacity
             style={{ marginRight: 20, marginBottom: 10 }}
-            onPress={() => {
-              // Clean session
+            onPress={async () => {
+              await logout();
               router.replace("/(auth)/login");
             }}
           >

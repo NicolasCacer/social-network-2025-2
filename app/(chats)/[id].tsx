@@ -1,10 +1,10 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { useLocalSearchParams } from "expo-router";
 import React, { useState } from "react";
 import {
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
-  ListRenderItem,
   Platform,
   StyleSheet,
   Text,
@@ -14,19 +14,36 @@ import {
   View,
 } from "react-native";
 
-// ✅ Definimos el tipo de cada mensaje
 type Message = {
   id: string;
   text: string;
   sender: "me" | "them";
 };
 
+const dummyMessages: Record<string, Message[]> = {
+  "1": [
+    { id: "1", text: "Hola Ana!", sender: "them" },
+    { id: "2", text: "¿Cómo vas?", sender: "me" },
+  ],
+  "2": [
+    { id: "1", text: "Mañana nos vemos 👍", sender: "them" },
+    { id: "2", text: "Perfecto!", sender: "me" },
+  ],
+  "3": [
+    { id: "1", text: "Te envié las fotos 📸", sender: "them" },
+    { id: "2", text: "Ya las vi, gracias!", sender: "me" },
+  ],
+};
+
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<Message[]>([
-    { id: "1", text: "Hola!", sender: "them" },
-    { id: "2", text: "Hey, ¿cómo vas?", sender: "me" },
-  ]);
-  const [input, setInput] = useState<string>("");
+  const { id } = useLocalSearchParams<{
+    id: string;
+    name: string;
+    avatar: string;
+  }>();
+
+  const [messages, setMessages] = useState<Message[]>(dummyMessages[id] || []);
+  const [input, setInput] = useState("");
 
   const sendMessage = () => {
     if (input.trim() === "") return;
@@ -36,18 +53,6 @@ export default function ChatScreen() {
     ]);
     setInput("");
   };
-
-  // ✅ Tipamos el parámetro item como Message
-  const renderItem: ListRenderItem<Message> = ({ item }) => (
-    <View
-      style={[
-        styles.message,
-        item.sender === "me" ? styles.myMessage : styles.theirMessage,
-      ]}
-    >
-      <Text style={styles.messageText}>{item.text}</Text>
-    </View>
-  );
 
   return (
     <KeyboardAvoidingView
@@ -61,9 +66,17 @@ export default function ChatScreen() {
           <FlatList
             data={messages}
             keyExtractor={(item) => item.id}
-            renderItem={renderItem}
+            renderItem={({ item }) => (
+              <View
+                style={[
+                  styles.message,
+                  item.sender === "me" ? styles.myMessage : styles.theirMessage,
+                ]}
+              >
+                <Text style={styles.messageText}>{item.text}</Text>
+              </View>
+            )}
             contentContainerStyle={{ padding: 10 }}
-            showsVerticalScrollIndicator={false}
           />
 
           {/* Caja de texto */}
@@ -87,20 +100,23 @@ export default function ChatScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff" },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#eee",
+  },
+  avatar: { width: 40, height: 40, borderRadius: 20, marginRight: 10 },
+  name: { fontSize: 16, fontWeight: "bold" },
   message: {
     padding: 10,
     borderRadius: 10,
     marginVertical: 5,
     maxWidth: "70%",
   },
-  myMessage: {
-    backgroundColor: "#DCF8C6",
-    alignSelf: "flex-end",
-  },
-  theirMessage: {
-    backgroundColor: "#eee",
-    alignSelf: "flex-start",
-  },
+  myMessage: { backgroundColor: "#DCF8C6", alignSelf: "flex-end" },
+  theirMessage: { backgroundColor: "#eee", alignSelf: "flex-start" },
   messageText: { fontSize: 16 },
   inputContainer: {
     flexDirection: "row",
@@ -131,5 +147,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  sendText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 });

@@ -1,9 +1,11 @@
+import { supabase } from "@/utils/supabase";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
+  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,11 +18,50 @@ import {
 
 export default function RegisterScreen() {
   const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPass, setConfirmPass] = useState("");
   const [showPass, setShowPass] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  const handleRegister = async () => {
+    if (!email || !password || !username) {
+      Alert.alert("Error", "Todos los campos son obligatorios.");
+      return;
+    }
+    if (password !== confirmPass) {
+      Alert.alert("Error", "Las contraseñas no coinciden.");
+      return;
+    }
+
+    setLoading(true);
+
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          display_name: username,
+        },
+        emailRedirectTo: "socialnetworknico://login",
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      Alert.alert("Error al registrar", error.message);
+      return;
+    }
+
+    Alert.alert(
+      "Registro exitoso",
+      "Revisa tu correo para confirmar la cuenta."
+    );
+    router.push("/(auth)/login");
+  };
 
   return (
     <LinearGradient
@@ -52,6 +93,22 @@ export default function RegisterScreen() {
           {/* Registration form */}
           <View style={styles.body}>
             <Text style={styles.title}>Create an Account</Text>
+
+            {/* Email */}
+            <View style={styles.inputWrap}>
+              <Feather name="mail" size={18} style={styles.inputIcon} />
+              <TextInput
+                placeholder="Email"
+                placeholderTextColor="#BDBDBD"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                textContentType="username"
+                autoComplete="email"
+                style={styles.input}
+              />
+            </View>
 
             {/* Username */}
             <View style={styles.inputWrap}>
@@ -114,12 +171,12 @@ export default function RegisterScreen() {
             {/* Register Button */}
             <TouchableOpacity
               style={styles.registerBtn}
-              onPress={() => {
-                // Aquí podrías validar y registrar al usuario
-                router.push("/(main)/main");
-              }}
+              onPress={handleRegister}
+              disabled={loading}
             >
-              <Text style={styles.registerText}>Register</Text>
+              <Text style={styles.registerText}>
+                {loading ? "Registering..." : "Register"}
+              </Text>
             </TouchableOpacity>
 
             {/* Go back to login */}
@@ -143,7 +200,7 @@ const styles = StyleSheet.create({
 
   header: {
     alignItems: "center",
-    marginBottom: 80,
+    marginBottom: 16,
   },
   image: {
     width: 120,

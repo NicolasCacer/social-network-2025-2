@@ -37,7 +37,7 @@ export default function CreatePost() {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images", "videos", "livePhotos"],
       quality: 1,
     });
 
