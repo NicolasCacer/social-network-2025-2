@@ -1,5 +1,5 @@
 import { createContext, useEffect, useState } from "react";
-import { supabase } from "../utils/supabase"; // ajusta la ruta
+import { supabase } from "../utils/supabase";
 import { User } from "./common.type";
 
 interface AuthContextProps {

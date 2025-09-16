@@ -9,7 +9,7 @@ import {
   View,
 } from "react-native";
 
-// 📌 Definimos el tipo de Post
+// Definimos el tipo de Post
 type Post = {
   id: string;
   user: string;
@@ -18,7 +18,7 @@ type Post = {
   image: string;
 };
 
-// 📌 Datos de prueba
+// Datos de prueba
 const posts: Post[] = [
   {
     id: "1",
@@ -37,7 +37,7 @@ const posts: Post[] = [
 ];
 
 export default function Main() {
-  // 📌 Tipamos item dentro de renderPost
+  //  Tipamos item dentro de renderPost
   const renderPost = ({ item }: { item: Post }) => (
     <View style={styles.post}>
       {/* User row */}
@@ -82,7 +82,7 @@ export default function Main() {
   );
 }
 
-// 📌 Estilos
+//  Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
