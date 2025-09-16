@@ -17,7 +17,7 @@ import {
 import { AuthContext } from "../../context/AuthContext";
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState(""); // 👈 ahora es email
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPass, setShowPass] = useState(false);
   const context = useContext(AuthContext);
