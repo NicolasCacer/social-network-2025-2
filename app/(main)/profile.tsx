@@ -1,5 +1,9 @@
-import React from "react";
+import { supabase } from "@/utils/supabase"; // ajusta según tu proyecto
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
 import {
+  ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   ScrollView,
@@ -9,46 +13,117 @@ import {
   View,
 } from "react-native";
 
+type ProfileData = {
+  id: string;
+  email: string;
+  name: string;
+  username: string | null;
+  avatar_url: string | null;
+  bio: string | null;
+  followers_count: number;
+  following_count: number;
+  posts_count: number;
+};
+
 const posts = [
   { id: "1", image: "https://picsum.photos/300/200" },
   { id: "2", image: "https://picsum.photos/301/200" },
   { id: "3", image: "https://picsum.photos/302/200" },
-  { id: "4", image: "https://picsum.photos/300/200" },
-  { id: "5", image: "https://picsum.photos/301/200" },
-  { id: "6", image: "https://picsum.photos/302/200" },
 ];
 
 export default function Profile() {
+  const router = useRouter();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const loadProfile = async () => {
+      setLoading(true);
+
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser();
+
+      if (userError || !user) {
+        Alert.alert("Error", "No se pudo obtener el usuario.");
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (error) {
+        Alert.alert("Error", error.message);
+      } else {
+        setProfile(data as ProfileData);
+      }
+
+      setLoading(false);
+    };
+
+    loadProfile();
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: "center" }]}>
+        <ActivityIndicator size="large" color="#2E38F2" />
+      </View>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <View style={[styles.container, { justifyContent: "center" }]}>
+        <Text style={{ color: "#333" }}>No profile found.</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       {/* Header con datos */}
       <View style={styles.header}>
         <Image
-          source={{ uri: "https://i.pravatar.cc/150?img=5" }}
+          source={{
+            uri: profile.avatar_url || "https://i.pravatar.cc/150?img=5",
+          }}
           style={styles.avatar}
         />
-        <Text style={styles.username}>@nuppi_user</Text>
-        <Text style={styles.bio}>🚀 Amante de la tecnología y el café ☕</Text>
+        <Text style={styles.username}>
+          {profile.username ? `@${profile.username}` : profile.email}
+        </Text>
+        <Text style={styles.bio}>{profile.bio || ""}</Text>
 
         {/* Stats */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>120</Text>
+            <Text style={styles.statNumber}>{profile.posts_count}</Text>
             <Text style={styles.statLabel}>Posts</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>4.5k</Text>
+            <Text style={styles.statNumber}>{profile.followers_count}</Text>
             <Text style={styles.statLabel}>Followers</Text>
           </View>
           <View style={styles.statBox}>
-            <Text style={styles.statNumber}>230</Text>
+            <Text style={styles.statNumber}>{profile.following_count}</Text>
             <Text style={styles.statLabel}>Following</Text>
           </View>
         </View>
 
         {/* Botones */}
         <View style={styles.actionsRow}>
-          <TouchableOpacity style={styles.editBtn}>
+          <TouchableOpacity
+            style={styles.editBtn}
+            onPress={() => {
+              router.push("/(profile)/editProfile");
+            }}
+          >
             <Text style={styles.editText}>Edit Profile</Text>
           </TouchableOpacity>
         </View>
@@ -66,19 +141,6 @@ export default function Profile() {
         showsHorizontalScrollIndicator={true}
         contentContainerStyle={styles.postsRow}
       />
-      <View style={styles.favouritePosts}>
-        <Text style={styles.sectionTitle}>My Favourites</Text>
-        <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <Image source={{ uri: item.image }} style={styles.postImage} />
-          )}
-          horizontal
-          showsHorizontalScrollIndicator={true}
-          contentContainerStyle={styles.postsRow}
-        />
-      </View>
     </ScrollView>
   );
 }
@@ -149,11 +211,6 @@ const styles = StyleSheet.create({
     color: "#fff",
     fontWeight: "600",
   },
-  logoutBtn: {
-    backgroundColor: "#32408C",
-    padding: 10,
-    borderRadius: 20,
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "700",
@@ -170,15 +227,5 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 10,
     marginRight: 12,
-  },
-  favouritePosts: {
-    flex: 1,
-    alignItems: "flex-start",
-    justifyContent: "flex-start",
-    marginTop: 10,
-    marginBottom: 20,
-    fontSize: 16,
-    fontWeight: "900",
-    color: "#333640",
   },
 });
