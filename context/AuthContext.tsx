@@ -56,26 +56,64 @@ export const AuthProvider = ({ children }: any) => {
     return true;
   };
 
-  // Registro (puedes guardar username en metadata)
+  // Crear usuario
+
   const register = async (
     email: string,
     password: string,
     username?: string
   ) => {
+    // Crear usuario en Auth
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          display_name: username,
-        },
-      },
+      options: { data: { display_name: username } },
     });
-    if (error) {
-      console.error("Error en registro:", error.message);
+
+    if (error || !data.user) {
+      console.error(
+        "Error en registro:",
+        error?.message || "No se creó el usuario"
+      );
       return false;
     }
-    setUser(data.user as any);
+
+    // Construir el User completo
+    const newUser: User = {
+      id: data.user.id,
+      email: data.user.email || "",
+      name: username || "",
+      username: username || null,
+      avatar_url: null,
+      cover_url: null,
+      bio: null,
+      website: null,
+      location: null,
+      birth_date: null,
+      phone: null,
+      gender: null,
+      is_verified: false,
+      is_private: false,
+      followers_count: 0,
+      following_count: 0,
+      posts_count: 0,
+      likes_count: 0,
+      last_active: null,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    // Insertar en 'profiles'
+    const { error: profileError } = await supabase
+      .from("profiles")
+      .insert([newUser]);
+    if (profileError) {
+      console.error("Error al crear perfil:", profileError.message);
+      return false;
+    }
+
+    // Guardar en estado
+    setUser(newUser);
     return true;
   };
 

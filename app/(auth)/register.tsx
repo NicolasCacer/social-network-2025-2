@@ -1,9 +1,9 @@
-import { supabase } from "@/utils/supabase";
+import { AuthContext } from "@/context/AuthContext";
 import { Feather } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
-import { useState } from "react";
+import { useContext, useState } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -25,6 +25,7 @@ export default function RegisterScreen() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const context = useContext(AuthContext);
 
   const handleRegister = async () => {
     if (!email || !password || !username) {
@@ -37,24 +38,14 @@ export default function RegisterScreen() {
     }
 
     setLoading(true);
-
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          display_name: username,
-        },
-        emailRedirectTo: "socialnetworknico://login",
-      },
-    });
-
-    setLoading(false);
-
-    if (error) {
-      Alert.alert("Error al registrar", error.message);
+    try {
+      await context.register(email, password, username);
+    } catch (error) {
+      console.log(error);
+      Alert.alert("Error al registrar");
       return;
     }
+    setLoading(false);
 
     Alert.alert(
       "Registro exitoso",
