@@ -181,7 +181,10 @@ export default function ReelsScreen() {
     <View style={styles.container}>
       <FlatList
         data={reelsData}
+        bounces={true}
+        overScrollMode="never"
         keyExtractor={(item) => item.id}
+        contentContainerStyle={{}}
         renderItem={({ item, index }) => (
           <ReelItem
             item={item}
@@ -200,7 +203,6 @@ export default function ReelsScreen() {
           offset: availableHeight * index,
           index,
         })}
-        contentContainerStyle={{ paddingBottom: tabBarHeight }}
       />
     </View>
   );

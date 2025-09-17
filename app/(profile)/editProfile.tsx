@@ -24,7 +24,7 @@ export default function EditProfile() {
     gender: "",
   });
 
-  // 🔹 Cargar datos actuales del perfil
+  // Cargar datos actuales del perfil
   useEffect(() => {
     const loadProfile = async () => {
       setLoading(true);
@@ -65,7 +65,7 @@ export default function EditProfile() {
     loadProfile();
   }, []);
 
-  // 🔹 Guardar cambios
+  // Guardar cambios
   const handleSave = async () => {
     setLoading(true);
     const {
@@ -134,8 +134,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: "#fff",
     padding: 20,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderRadius: 20,
     marginTop: 16,
     marginHorizontal: 12,
     shadowColor: "#000",

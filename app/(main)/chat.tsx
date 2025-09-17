@@ -12,19 +12,19 @@ import {
 const dummyChats = [
   {
     id: "1",
-    name: "Ana",
+    name: "Juan",
     lastMessage: "¿Cómo vas?",
     avatar: "https://i.pravatar.cc/100?img=1",
   },
   {
     id: "2",
-    name: "Carlos",
+    name: "María",
     lastMessage: "Mañana nos vemos 👍",
     avatar: "https://i.pravatar.cc/100?img=2",
   },
   {
     id: "3",
-    name: "Laura",
+    name: "Rodrigo",
     lastMessage: "Te envié las fotos 📸",
     avatar: "https://i.pravatar.cc/100?img=3",
   },

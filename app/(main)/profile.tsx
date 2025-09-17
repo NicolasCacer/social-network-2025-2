@@ -1,4 +1,4 @@
-import { supabase } from "@/utils/supabase"; // ajusta según tu proyecto
+import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
@@ -35,38 +35,72 @@ export default function Profile() {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const loadProfile = async () => {
+    setLoading(true);
+
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user) {
+      Alert.alert("Error", "No se pudo obtener el usuario.");
+      setLoading(false);
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+
+    if (error) {
+      Alert.alert("Error", error.message);
+    } else {
+      setProfile(data as ProfileData);
+    }
+
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const loadProfile = async () => {
-      setLoading(true);
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+
+    const init = async () => {
+      await loadProfile();
 
       const {
         data: { user },
-        error: userError,
       } = await supabase.auth.getUser();
-
-      if (userError || !user) {
-        Alert.alert("Error", "No se pudo obtener el usuario.");
-        setLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (error) {
-        Alert.alert("Error", error.message);
-      } else {
-        setProfile(data as ProfileData);
-      }
-
-      setLoading(false);
+      if (!user) return;
+      channel = supabase
+        .channel("profile-updates")
+        .on(
+          "postgres_changes",
+          {
+            event: "UPDATE",
+            schema: "public",
+            table: "profiles",
+            filter: `id=eq.${user.id}`,
+          },
+          (payload) => {
+            console.log("Cambio detectado en realtime");
+            if (payload.new) {
+              setProfile(payload.new as ProfileData);
+            }
+          }
+        )
+        .subscribe((status) => {
+          console.log("Estado de canal:", status);
+        });
     };
 
-    loadProfile();
+    init();
+
+    return () => {
+      if (channel) supabase.removeChannel(channel);
+    };
   }, []);
 
   if (loading) {
@@ -86,7 +120,7 @@ export default function Profile() {
   }
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} bounces={false} overScrollMode="auto">
       {/* Header con datos */}
       <View style={styles.header}>
         <Image
