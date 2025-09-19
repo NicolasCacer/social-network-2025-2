@@ -12,6 +12,7 @@ interface AuthContextProps {
   ) => Promise<boolean>;
   resetPassword: (email: string) => Promise<void>;
   logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 export const AuthContext = createContext({} as AuthContextProps);
@@ -53,6 +54,7 @@ export const AuthProvider = ({ children }: any) => {
       return false;
     }
     setUser(data.user as any);
+    await refreshUser();
     return true;
   };
 
@@ -131,6 +133,32 @@ export const AuthProvider = ({ children }: any) => {
     setUser(null);
   };
 
+  // Refresh context
+  const refreshUser = async () => {
+    const {
+      data: { user: authUser },
+    } = await supabase.auth.getUser();
+
+    if (!authUser) {
+      setUser(null);
+      return;
+    }
+
+    // Fetch from profiles table to get the latest data
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", authUser.id)
+      .single();
+
+    if (error) {
+      console.error("Error refreshing profile:", error.message);
+      return;
+    }
+
+    setUser(profile as User);
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -139,6 +167,7 @@ export const AuthProvider = ({ children }: any) => {
         register,
         resetPassword,
         logout,
+        refreshUser,
       }}
     >
       {children}

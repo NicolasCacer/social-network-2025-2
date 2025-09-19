@@ -25,6 +25,7 @@ type ProfileData = {
   posts_count: number;
 };
 
+// Temporary mocked posts
 const posts = [
   { id: "1", image: "https://picsum.photos/300/200" },
   { id: "2", image: "https://picsum.photos/301/200" },
@@ -35,6 +36,8 @@ export default function Profile() {
   const router = useRouter();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+
+  // Load user profile data
   const loadProfile = async () => {
     setLoading(true);
 
@@ -44,7 +47,7 @@ export default function Profile() {
     } = await supabase.auth.getUser();
 
     if (userError || !user) {
-      Alert.alert("Error", "No se pudo obtener el usuario.");
+      Alert.alert("Error", "Failed to fetch user.");
       setLoading(false);
       return;
     }
@@ -74,6 +77,8 @@ export default function Profile() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Listen for real-time profile updates
       channel = supabase
         .channel("profile-updates")
         .on(
@@ -85,14 +90,14 @@ export default function Profile() {
             filter: `id=eq.${user.id}`,
           },
           (payload) => {
-            console.log("Cambio detectado en realtime");
+            console.log("Realtime profile update detected");
             if (payload.new) {
               setProfile(payload.new as ProfileData);
             }
           }
         )
         .subscribe((status) => {
-          console.log("Estado de canal:", status);
+          console.log("Channel status:", status);
         });
     };
 
@@ -121,20 +126,25 @@ export default function Profile() {
 
   return (
     <ScrollView style={styles.container} bounces={false} overScrollMode="auto">
-      {/* Header con datos */}
+      {/* Header with user data */}
       <View style={styles.header}>
-        <Image
-          source={{
-            uri: profile.avatar_url || "https://i.pravatar.cc/150?img=5",
-          }}
-          style={styles.avatar}
-        />
+        {profile.avatar_url ? (
+          <Image source={{ uri: profile.avatar_url }} style={styles.avatar} />
+        ) : (
+          <Image
+            source={{
+              uri: "https://static.vecteezy.com/system/resources/thumbnails/036/280/651/small_2x/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-illustration-vector.jpg",
+            }}
+            style={styles.avatar}
+          />
+        )}
+
         <Text style={styles.username}>
           {profile.username ? `@${profile.username}` : profile.email}
         </Text>
         <Text style={styles.bio}>{profile.bio || ""}</Text>
 
-        {/* Stats */}
+        {/* Stats section */}
         <View style={styles.statsRow}>
           <View style={styles.statBox}>
             <Text style={styles.statNumber}>{profile.posts_count}</Text>
@@ -150,7 +160,7 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Botones */}
+        {/* Action buttons */}
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.editBtn}
@@ -163,7 +173,7 @@ export default function Profile() {
         </View>
       </View>
 
-      {/* Posts del usuario */}
+      {/* User posts section */}
       <Text style={styles.sectionTitle}>My Posts</Text>
       <FlatList
         data={posts}
@@ -202,6 +212,8 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     marginBottom: 10,
+    borderColor: "#00000067",
+    borderWidth: 2,
   },
   username: {
     fontSize: 20,

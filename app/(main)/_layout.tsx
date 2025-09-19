@@ -7,7 +7,7 @@ import { TouchableOpacity } from "react-native";
 
 export default function TabsLayout() {
   const router = useRouter();
-  const { logout } = useContext(AuthContext);
+  const context = useContext(AuthContext);
   return (
     <Tabs
       screenOptions={{
@@ -17,7 +17,7 @@ export default function TabsLayout() {
           <TouchableOpacity
             style={{ marginRight: 20, marginBottom: 10 }}
             onPress={async () => {
-              await logout();
+              await context.logout();
               router.replace("/(auth)/login");
             }}
           >
