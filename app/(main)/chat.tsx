@@ -1,5 +1,6 @@
+import { DataContext } from "@/context/DataContext";
 import { useRouter } from "expo-router";
-import React from "react";
+import React, { useContext, useEffect } from "react";
 import {
   FlatList,
   Image,
@@ -9,29 +10,17 @@ import {
   View,
 } from "react-native";
 
-const dummyChats = [
-  {
-    id: "1",
-    name: "Juan",
-    lastMessage: "¿Cómo vas?",
-    avatar: "https://i.pravatar.cc/100?img=1",
-  },
-  {
-    id: "2",
-    name: "María",
-    lastMessage: "Mañana nos vemos 👍",
-    avatar: "https://i.pravatar.cc/100?img=2",
-  },
-  {
-    id: "3",
-    name: "Rodrigo",
-    lastMessage: "Te envié las fotos 📸",
-    avatar: "https://i.pravatar.cc/100?img=3",
-  },
-];
-
 export default function ChatList() {
   const router = useRouter();
+  const { profiles, getProfiles } = useContext(DataContext);
+
+  useEffect(() => {
+    const fetchProfiles = async () => {
+      const { data } = await getProfiles();
+      console.log("Perfiles desde Supabase:", data);
+    };
+    fetchProfiles();
+  });
 
   const renderItem = ({ item }: { item: any }) => (
     <TouchableOpacity
@@ -42,15 +31,22 @@ export default function ChatList() {
           params: {
             id: item.id,
             name: item.name,
-            avatar: item.avatar,
+            avatar: item.avatar_url,
           },
         })
       }
     >
-      <Image source={{ uri: item.avatar }} style={styles.avatar} />
+      <Image
+        source={{
+          uri:
+            item.avatar_url ??
+            "https://static.vecteezy.com/system/resources/thumbnails/036/280/651/small_2x/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-illustration-vector.jpg",
+        }}
+        style={styles.avatar}
+      />
       <View style={styles.textContainer}>
         <Text style={styles.name}>{item.name}</Text>
-        <Text style={styles.lastMessage}>{item.lastMessage}</Text>
+        <Text style={styles.lastMessage}>@{item.username}</Text>
       </View>
     </TouchableOpacity>
   );
@@ -58,7 +54,7 @@ export default function ChatList() {
   return (
     <View style={styles.container}>
       <FlatList
-        data={dummyChats}
+        data={profiles} // 👈 ahora usas los perfiles reales
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
       />
