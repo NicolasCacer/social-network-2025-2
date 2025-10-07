@@ -1,66 +1,97 @@
+import { DataContext } from "@/context/DataContext";
 import { Feather } from "@expo/vector-icons";
-import React from "react";
+import { VideoView, useVideoPlayer } from "expo-video";
+import { useContext, useRef, useState } from "react";
 import {
+  Animated,
   FlatList,
   Image,
   StyleSheet,
   Text,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
 
-// Definimos el tipo de Post
+// Definimos el tipo Post según nuestro context
 type Post = {
   id: string;
-  user: string;
+  user_id: string;
+  user_name: string;
   avatar: string;
   content: string;
-  image: string;
+  media_url?: string;
+  likes_count: number;
+  comments_count: number;
 };
 
-// Datos de prueba
-const posts: Post[] = [
-  {
-    id: "1",
-    user: "NuppiUser",
-    avatar: "https://i.pravatar.cc/100?img=1",
-    content: "¡Hola! Esta es mi primera publicación en Nuppi 🚀",
-    image: "https://picsum.photos/400/200",
-  },
-  {
-    id: "2",
-    user: "JaneDoe",
-    avatar: "https://i.pravatar.cc/100?img=2",
-    content: "Disfrutando del día con un buen café ☕",
-    image: "https://picsum.photos/400/201",
-  },
-];
+function PostItem({ item }: { item: Post }) {
+  const { likePost } = useContext(DataContext);
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const [isPlaying, setIsPlaying] = useState(false);
+  const player = useVideoPlayer(item.media_url || "", (p) => {
+    p.loop = true;
+  });
 
-export default function Main() {
-  //  Tipamos item dentro de renderPost
-  const renderPost = ({ item }: { item: Post }) => (
+  const togglePlayPause = () => {
+    if (!item.media_url?.endsWith(".mp4")) return; // solo video
+    if (isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+    } else {
+      player.play();
+      setIsPlaying(true);
+    }
+    fadeAnim.setValue(1);
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 1000,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  return (
     <View style={styles.post}>
       {/* User row */}
       <View style={styles.userRow}>
         <Image source={{ uri: item.avatar }} style={styles.avatar} />
-        <Text style={styles.username}>{item.user}</Text>
+        <Text style={styles.username}>{item.user_name}</Text>
       </View>
 
       {/* Content */}
       <Text style={styles.content}>{item.content}</Text>
 
-      {/* Post image */}
-      <Image source={{ uri: item.image }} style={styles.postImage} />
+      {/* Post media */}
+      {item.media_url && item.media_url.endsWith(".mp4") ? (
+        <TouchableWithoutFeedback onPress={togglePlayPause}>
+          <View style={styles.postMediaContainer}>
+            <VideoView
+              player={player}
+              style={styles.postMedia} // <-- usamos estilo escalado
+              contentFit="cover"
+              allowsPictureInPicture={false}
+              nativeControls={true}
+            />
+          </View>
+        </TouchableWithoutFeedback>
+      ) : item.media_url ? (
+        <Image source={{ uri: item.media_url }} style={styles.postMedia} />
+      ) : null}
 
       {/* Actions */}
       <View style={styles.actions}>
-        <TouchableOpacity style={styles.actionBtn}>
+        <TouchableOpacity
+          style={styles.actionBtn}
+          onPress={() => likePost(item.id)}
+        >
           <Feather name="heart" size={20} color="#2E38F2" />
-          <Text style={styles.actionText}>Like</Text>
+          <Text style={styles.actionText}>Like ({item.likes_count || 0})</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn}>
           <Feather name="message-circle" size={20} color="#2E38F2" />
-          <Text style={styles.actionText}>Comment</Text>
+          <Text style={styles.actionText}>
+            Comment ({item.comments_count || 0})
+          </Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionBtn}>
           <Feather name="share" size={20} color="#2E38F2" />
@@ -69,20 +100,23 @@ export default function Main() {
       </View>
     </View>
   );
+}
+
+export default function Main() {
+  const { posts } = useContext(DataContext);
 
   return (
     <View style={styles.container}>
       <FlatList
         data={posts}
         keyExtractor={(item) => item.id}
-        renderItem={renderPost}
+        renderItem={({ item }) => <PostItem item={item} />}
         contentContainerStyle={styles.feed}
       />
     </View>
   );
 }
 
-//  Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -121,11 +155,31 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     color: "#333640",
   },
-  postImage: {
+  postMediaContainer: {
     width: "100%",
     height: 180,
     borderRadius: 10,
+    overflow: "hidden",
     marginBottom: 10,
+  },
+  postMedia: {
+    width: "100%",
+    height: "100%",
+  },
+  iconOverlay: {
+    position: "absolute",
+    top: "40%",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  iconBackground: {
+    backgroundColor: "rgba(0,0,0,0.5)",
+    borderRadius: 50,
+    padding: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actions: {
     flexDirection: "row",

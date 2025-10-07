@@ -33,10 +33,9 @@ export default function ChatScreen() {
   const [input, setInput] = useState("");
   const scrollRef = useRef<ScrollView>(null);
 
-  // Carga inicial y suscripción a mensajes
+  // Cargar mensajes iniciales y suscribirse a cambios en tiempo real
   useEffect(() => {
     const loadMessages = async () => {
-      // 1. Cargar todos los mensajes del chat
       const { data, error } = await supabase
         .from("messages")
         .select("*")
@@ -44,22 +43,18 @@ export default function ChatScreen() {
         .order("created_at", { ascending: true });
 
       if (!error && data) {
-        const messages = data as Message[];
-        setMessages(messages);
+        const msgs = data as Message[];
+        setMessages(msgs);
 
-        // 2. Filtrar mensajes de la otra persona que aún no están leídos
-        const unreadMessages = messages.filter(
-          (msg) => msg.sent_by !== user?.id && !msg.seen_at
-        );
-
-        // 3. Marcar como leídos
-        if (unreadMessages.length > 0) {
+        // Marcar como leídos los mensajes recibidos
+        const unread = msgs.filter((m) => m.sent_by !== user?.id && !m.seen_at);
+        if (unread.length > 0) {
           await supabase
             .from("messages")
             .update({ seen_at: new Date().toISOString() })
             .in(
               "id",
-              unreadMessages.map((m) => m.id)
+              unread.map((m) => m.id)
             );
         }
       }
@@ -67,37 +62,25 @@ export default function ChatScreen() {
 
     loadMessages();
 
-    // 4. Suscribirse a INSERT y UPDATE (equivalente a UPSERT)
+    // Suscripción a cambios en "messages"
     const channel = supabase
       .channel(`chat-${id}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "messages",
-          filter: `chat_id=eq.${id}`,
-        },
-        handleRealtimeMessage
-      )
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "messages",
-          filter: `chat_id=eq.${id}`,
-        },
-        handleRealtimeMessage
+        { event: "*", schema: "public", table: "messages" },
+        (payload) => {
+          const newMsg = payload.new as Message;
+          if (newMsg.chat_id === id) {
+            handleRealtimeMessage(newMsg);
+          }
+        }
       )
       .subscribe();
 
-    function handleRealtimeMessage(payload: any) {
-      const newMessage = payload.new as Message;
-
-      // Si es de la otra persona y no está leído, marcarlo como leído
+    const handleRealtimeMessage = async (newMessage: Message) => {
+      // Si es mensaje de otro y no está leído, marcarlo
       if (newMessage.sent_by !== user?.id && !newMessage.seen_at) {
-        supabase
+        await supabase
           .from("messages")
           .update({ seen_at: new Date().toISOString() })
           .eq("id", newMessage.id);
@@ -106,22 +89,24 @@ export default function ChatScreen() {
       }
 
       setMessages((prev) => {
-        // Evitar duplicados en caso de UPDATE
         const exists = prev.find((m) => m.id === newMessage.id);
-        if (exists) {
-          return prev.map((m) => (m.id === newMessage.id ? newMessage : m));
-        } else {
-          return [...prev, newMessage];
-        }
+        const updated = exists
+          ? prev.map((m) => (m.id === newMessage.id ? newMessage : m))
+          : [...prev, newMessage];
+
+        return updated.sort(
+          (a, b) =>
+            new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+        );
       });
-    }
+    };
 
     return () => {
       supabase.removeChannel(channel);
     };
   }, [user?.id, id]);
 
-  // Scroll al final cuando cambian los mensajes
+  // Scroll automático al final
   const scrollToEnd = () => {
     scrollRef.current?.scrollToEnd({ animated: true });
   };
@@ -136,6 +121,7 @@ export default function ChatScreen() {
       chat_id: id,
       sent_by: user?.id,
       text: input.trim(),
+      sent_at: new Date().toISOString(), // opcional
     });
     if (!error) setInput("");
   };

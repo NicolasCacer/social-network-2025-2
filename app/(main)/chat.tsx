@@ -21,19 +21,25 @@ interface LastMessage {
   sent_by?: string;
 }
 
-interface ChatItem {
+interface Participant {
   id: string;
+  name: string;
+  username?: string;
+  avatar_url?: string;
+}
+
+interface ChatItem {
+  id?: string; // chat id
   chatId?: string;
   name: string;
   username?: string;
   avatar_url?: string;
-  bio?: string; // nueva propiedad para mostrar bio
+  bio?: string;
   lastMessage?: LastMessage;
-  participant?: {
-    name: string;
-    username?: string; // para mis chats
-    avatar_url?: string;
-  };
+  participant?: Participant;
+  user_id_1?: string;
+  user_id_2?: string;
+  _uniqueKey?: string; // NUEVO: key única incremental
 }
 
 interface Section {
@@ -44,18 +50,39 @@ interface Section {
 export default function ChatList() {
   const router = useRouter();
   const { user } = useContext(AuthContext);
-  const { profiles, chats, getProfiles, getUserChats } =
+  const { profiles, chats, getProfiles, getUserChats, createChat } =
     useContext(DataContext);
 
   const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [localProfiles, setLocalProfiles] = useState<ChatItem[]>([]);
+  const [localChats, setLocalChats] = useState<ChatItem[]>([]);
+
+  // Cargar datos iniciales
+  useEffect(() => {
+    const fetchData = async () => {
+      await getProfiles();
+      if (user?.id) await getUserChats(user.id);
+    };
+    fetchData();
+  }, [user, getProfiles, getUserChats]);
+
+  // Mantener estados locales actualizados con _uniqueKey
+  useEffect(() => {
+    const chatsWithKey: ChatItem[] = chats.map((c: any, index: any) => ({
+      ...c,
+      _uniqueKey: `${c.chatId ?? c.id ?? "chat"}-${index}`,
+    }));
+    setLocalChats(chatsWithKey);
+  }, [chats]);
 
   useEffect(() => {
-    getProfiles();
-    if (user?.id) {
-      getUserChats(user.id);
-    }
-  });
+    const profilesWithKey: ChatItem[] = profiles.map((p: any, index: any) => ({
+      ...p,
+      _uniqueKey: `${p.id ?? "profile"}-${index}`,
+    }));
+    setLocalProfiles(profilesWithKey);
+  }, [profiles]);
 
   const toggleSection = (title: string) => {
     setCollapsedSections((prev) =>
@@ -63,12 +90,36 @@ export default function ChatList() {
     );
   };
 
-  const filteredProfiles = profiles.filter((p: ChatItem) =>
-    (p.username ?? "").toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredProfiles = localProfiles
+    .filter((p) => !localChats.some((c) => c.participant?.id === p.id))
+    .filter((p) =>
+      (p.username ?? "").toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+  const handleCreateChat = async (profile: ChatItem) => {
+    if (!user?.id || !profile.id) return;
+
+    const { data: newChat, error } = await createChat(profile.id);
+    if (error || !newChat) return;
+
+    const chatItem: ChatItem = {
+      id: newChat.id,
+      chatId: newChat.id,
+      name: profile.name,
+      username: profile.username,
+      avatar_url: profile.avatar_url,
+      participant: { ...profile } as Participant,
+      user_id_1: user.id,
+      user_id_2: profile.id,
+      _uniqueKey: `chat-${newChat.id}`,
+    };
+
+    setLocalChats((prev) => [chatItem, ...prev]);
+    setLocalProfiles((prev) => prev.filter((p) => p.id !== profile.id));
+  };
 
   const sections: Section[] = [
-    { title: "Mis chats", data: chats },
+    { title: "Mis chats", data: localChats },
     { title: "Explorar perfiles", data: filteredProfiles },
   ];
 
@@ -78,51 +129,43 @@ export default function ChatList() {
   }: SectionListRenderItemInfo<ChatItem, Section>) => {
     if (collapsedSections.includes(section.title)) return null;
 
-    // Mis chats
+    const lastMessage = item.lastMessage?.text ?? "";
+    const lastMessageTime = item.lastMessage?.sent_at
+      ? new Date(item.lastMessage.sent_at).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          hour12: true,
+        })
+      : "";
+
+    const seenIcon = item.lastMessage?.sent_at ? (
+      item.lastMessage?.seen_at ? (
+        <View style={styles.seenRow}>
+          <Text style={[styles.seenIcon, { color: "#2E38F2" }]}>✓</Text>
+          <Text style={[styles.seenIcon, { color: "#2E38F2", marginLeft: -3 }]}>
+            ✓
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.seenRow}>
+          <Text style={[styles.seenIcon, { color: "#2E38F2" }]}>✓</Text>
+          <Text style={[styles.seenIcon, { color: "#999", marginLeft: -3 }]}>
+            ✓
+          </Text>
+        </View>
+      )
+    ) : (
+      <View style={styles.seenRow}>
+        <Text style={[styles.seenIcon, { color: "#999" }]}>✓</Text>
+      </View>
+    );
+
     if (section.title === "Mis chats") {
-      if (!item?.participant) return null;
-
-      const lastMessage = item.lastMessage?.text ?? "";
-
-      const lastMessageTime = item.lastMessage?.sent_at
-        ? new Date(item.lastMessage.sent_at).toLocaleTimeString([], {
-            hour: "2-digit",
-            minute: "2-digit",
-            hour12: true,
-          })
-        : "";
-
-      let seenIcon = null;
-      if (!item.lastMessage?.sent_at) {
-        seenIcon = (
-          <View style={styles.seenRow}>
-            <Text style={[styles.seenIcon, { color: "#999" }]}>✓</Text>
-          </View>
-        );
-      } else if (item.lastMessage?.sent_at && !item.lastMessage?.seen_at) {
-        seenIcon = (
-          <View style={styles.seenRow}>
-            <Text style={[styles.seenIcon, { color: "#2E38F2" }]}>✓</Text>
-            <Text style={[styles.seenIcon, { color: "#999", marginLeft: -3 }]}>
-              ✓
-            </Text>
-          </View>
-        );
-      } else if (item.lastMessage?.seen_at) {
-        seenIcon = (
-          <View style={styles.seenRow}>
-            <Text style={[styles.seenIcon, { color: "#2E38F2" }]}>✓</Text>
-            <Text
-              style={[styles.seenIcon, { color: "#2E38F2", marginLeft: -3 }]}
-            >
-              ✓
-            </Text>
-          </View>
-        );
-      }
+      if (!item.participant) return null;
 
       return (
         <TouchableOpacity
+          key={item._uniqueKey}
           activeOpacity={0.7}
           style={styles.chatItem}
           onPress={() =>
@@ -130,7 +173,7 @@ export default function ChatList() {
               pathname: "/(chats)/[id]",
               params: {
                 id: item.chatId!,
-                name: item.participant?.username, // ahora usa username
+                name: item.participant?.username,
                 avatar: item.participant?.avatar_url,
               },
             })
@@ -139,15 +182,14 @@ export default function ChatList() {
           <Image
             source={{
               uri:
-                item.participant?.avatar_url ??
+                item.participant.avatar_url ??
                 "https://static.vecteezy.com/system/resources/thumbnails/036/280/651/small_2x/default-avatar-profile-icon-social-media-user-image-gray-avatar-icon-blank-profile-silhouette-illustration-vector.jpg",
             }}
             style={styles.avatar}
           />
-
           <View style={styles.chatContent}>
             <View style={styles.row}>
-              <Text style={styles.name}>@{item.participant?.username}</Text>
+              <Text style={styles.name}>@{item.participant.username}</Text>
               <Text style={styles.time}>{lastMessageTime}</Text>
             </View>
             <View style={styles.row}>
@@ -164,18 +206,10 @@ export default function ChatList() {
     // Explorar perfiles
     return (
       <TouchableOpacity
+        key={item._uniqueKey}
         activeOpacity={0.7}
         style={styles.chatItem}
-        onPress={() =>
-          router.push({
-            pathname: "/(chats)/[id]",
-            params: {
-              id: item.id,
-              name: item.username, // usa username como identificador
-              avatar: item.avatar_url,
-            },
-          })
-        }
+        onPress={() => handleCreateChat(item)}
       >
         <Image
           source={{
@@ -185,7 +219,6 @@ export default function ChatList() {
           }}
           style={styles.avatar}
         />
-
         <View style={styles.chatContent}>
           <View style={styles.row}>
             <Text style={styles.name}>@{item.username}</Text>
@@ -206,7 +239,6 @@ export default function ChatList() {
     section: SectionListData<ChatItem, Section>;
   }) => {
     const isCollapsed = collapsedSections.includes(section.title);
-
     return (
       <View>
         <TouchableOpacity
@@ -234,7 +266,9 @@ export default function ChatList() {
     <View style={styles.container}>
       <SectionList
         sections={sections}
-        keyExtractor={(item, index) => item.id + index}
+        keyExtractor={(item) =>
+          item._uniqueKey ?? item.id ?? Math.random().toString()
+        }
         renderItem={renderItem}
         renderSectionHeader={renderSectionHeader}
         contentContainerStyle={{ paddingBottom: 40 }}
@@ -256,11 +290,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#B4B9D9",
   },
-  sectionHeaderText: {
-    fontWeight: "bold",
-    fontSize: 16,
-    color: "#fff",
-  },
+  sectionHeaderText: { fontWeight: "bold", fontSize: 16, color: "#fff" },
   sectionToggle: { fontSize: 14, color: "#B4B9D9" },
 
   searchInput: {
@@ -284,18 +314,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#eee",
   },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    marginRight: 14,
-  },
+  avatar: { width: 52, height: 52, borderRadius: 26, marginRight: 14 },
 
-  chatContent: {
-    flex: 1,
-    flexDirection: "column",
-    justifyContent: "center",
-  },
+  chatContent: { flex: 1, flexDirection: "column", justifyContent: "center" },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -307,12 +328,6 @@ const styles = StyleSheet.create({
   lastMessage: { color: "#666", fontSize: 13, flexShrink: 1, maxWidth: "85%" },
   time: { fontSize: 12, color: "#666" },
 
-  seenRow: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  seenIcon: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
+  seenRow: { flexDirection: "row", alignItems: "center" },
+  seenIcon: { fontSize: 18, fontWeight: "600" },
 });
