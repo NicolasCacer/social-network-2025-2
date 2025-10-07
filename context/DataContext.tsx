@@ -27,7 +27,7 @@ export const DataContext = createContext<any>(null);
 export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   const [profiles, setProfiles] = useState<any[]>([]);
   const [chats, setChats] = useState<ChatItem[]>([]);
-  const [posts, setPosts] = useState<any[]>([]); // estado de posts
+  const [posts, setPosts] = useState<any[]>([]);
 
   const contextAuth = useContext(AuthContext);
 
@@ -163,7 +163,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     const userId = contextAuth.user?.id;
     if (!userId) return;
 
-    // Canal de chats
     const chatChannel = supabase
       .channel(`realtime-chats-${userId}`)
       .on(
@@ -199,9 +198,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextAuth.user?.id]);
 
-  // -----------------------------
-  // Actualizar chats desde la suscripción
-  // -----------------------------
   const handleRealtimeChat = (chat: any) => {
     if (!chat) return;
     const userId = contextAuth.user?.id;
@@ -227,9 +223,6 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     });
   };
 
-  // -----------------------------
-  // Actualizar mensajes desde la suscripción
-  // -----------------------------
   const handleRealtimeMessage = (message: any) => {
     if (!message) return;
     setChats((prev) =>
@@ -259,17 +252,36 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
     return { data, error };
   };
 
-  const likePost = async (postId: string) => {
+  const toggleLikePost = async (postId: string) => {
     const userId = contextAuth.user?.id;
     if (!userId) return { data: null, error: "Usuario no autenticado" };
 
-    const { data, error } = await supabase
-      .from("post_likes")
-      .insert([{ post_id: postId, user_id: userId }])
-      .select()
-      .single();
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return { data: null, error: "Post no encontrado" };
 
-    return { data, error };
+    const likedByUser = post.likedByUser || false;
+
+    try {
+      if (likedByUser) {
+        // Quitar like
+        await supabase
+          .from("post_likes")
+          .delete()
+          .eq("post_id", postId)
+          .eq("user_id", userId);
+        await supabase.rpc("decrement_like_count", { post_id: postId });
+      } else {
+        // Dar like
+        await supabase
+          .from("post_likes")
+          .insert([{ post_id: postId, user_id: userId }]);
+        await supabase.rpc("increment_like_count", { post_id: postId });
+      }
+      return { data: true, error: null };
+    } catch (err) {
+      console.error("Error al alternar like:", err);
+      return { data: null, error: err };
+    }
   };
 
   const commentPost = async (
@@ -297,7 +309,7 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   // -----------------------------
-  // Suscripción en tiempo real para posts
+  // Suscripción en tiempo real para posts y likes
   // -----------------------------
   useEffect(() => {
     const userId = contextAuth.user?.id;
@@ -310,29 +322,41 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "posts" },
-        () => {
-          getPosts();
-        }
+        () => getPosts()
+      )
+      .subscribe();
+
+    const likesChannel = supabase
+      .channel("realtime-post-likes")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "post_likes" },
+        () => getPosts()
       )
       .subscribe();
 
     return () => {
       supabase.removeChannel(postsChannel);
+      supabase.removeChannel(likesChannel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextAuth.user?.id]);
 
-  // Get posts
-
-  // Traer posts existentes
+  // -----------------------------
+  // Obtener posts (con info de likes del usuario)
+  // -----------------------------
   const getPosts = async () => {
+    const userId = contextAuth.user?.id;
+
     try {
       const { data, error } = await supabase
         .from("posts")
         .select(
           `
-        *,
-        profiles!inner(id, name, avatar_url)
-      `
+          *,
+          profiles!inner(id, name, avatar_url),
+          post_likes(user_id)
+        `
         )
         .order("created_at", { ascending: false });
 
@@ -345,10 +369,13 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         avatar: p.profiles?.avatar_url || "",
         content: p.content,
         media_url: p.media_url,
-        likes_count: p.likes_count,
-        comments_count: p.comments_count,
+        likes_count: p.likes_count || 0,
+        comments_count: p.comments_count || 0,
         created_at: p.created_at,
         updated_at: p.updated_at,
+        likedByUser: (p.post_likes || []).some(
+          (l: any) => l.user_id === userId
+        ),
       }));
 
       setPosts(mappedPosts);
@@ -371,9 +398,10 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         getUserChats,
         createChat,
         createPost,
-        likePost,
+        toggleLikePost,
         commentPost,
         getPosts,
+        setPosts,
       }}
     >
       {children}

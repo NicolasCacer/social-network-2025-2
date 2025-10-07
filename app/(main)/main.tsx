@@ -1,5 +1,6 @@
 import { AuthContext } from "@/context/AuthContext";
 import { DataContext } from "@/context/DataContext";
+import { supabase } from "@/utils/supabase";
 import { Feather } from "@expo/vector-icons";
 import { useIsFocused } from "@react-navigation/native";
 import { VideoView, useVideoPlayer } from "expo-video";
@@ -26,11 +27,12 @@ type Post = {
   likes_count: number;
   comments_count: number;
   created_at: Date;
+  likedByUser?: boolean; // 👈 nuevo
 };
 
 // ---------------- PostItem ----------------
 function PostItem({ item }: { item: Post }) {
-  const { likePost } = useContext(DataContext);
+  const { toggleLikePost } = useContext(DataContext);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [isPlaying, setIsPlaying] = useState(false);
   const isFocused = useIsFocused();
@@ -63,7 +65,7 @@ function PostItem({ item }: { item: Post }) {
     }).start();
   };
 
-  // Formatear fecha a dd/mm/yyyy
+  // Formatear fecha
   const formattedDate = new Date(item.created_at || "").toLocaleDateString(
     "es-ES"
   );
@@ -72,18 +74,7 @@ function PostItem({ item }: { item: Post }) {
     <View style={styles.post}>
       <View style={styles.userRow}>
         <Image source={{ uri: item.avatar }} style={styles.avatar} />
-        <Text style={styles.username}>{item.user_name}</Text>{" "}
-        <TouchableOpacity style={styles.userRow}>
-          <Feather
-            name="smile"
-            size={20}
-            color="#2E38F2"
-            style={{ marginLeft: 150 }}
-          />
-          <Text style={styles.actionText}>
-            Follow ({item.comments_count || 0})
-          </Text>
-        </TouchableOpacity>
+        <Text style={styles.username}>{item.user_name}</Text>
       </View>
 
       {item.media_url && item.media_url.endsWith(".mp4") ? (
@@ -127,17 +118,26 @@ function PostItem({ item }: { item: Post }) {
       <View style={styles.actions}>
         <TouchableOpacity
           style={styles.actionBtn}
-          onPress={() => likePost(item.id)}
+          onPress={() => toggleLikePost(item.id)}
         >
-          <Feather name="heart" size={20} color="#2E38F2" />
-          <Text style={styles.actionText}>Like ({item.likes_count || 0})</Text>
+          <Feather
+            name={item.likedByUser ? "heart" : "heart"}
+            size={20}
+            color={item.likedByUser ? "red" : "#2E38F2"}
+            fill={item.likedByUser ? "red" : "none"}
+          />
+          <Text style={styles.actionText}>
+            {item.likes_count || 0} {item.likedByUser ? "Liked" : "Like"}
+          </Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.actionBtn}>
           <Feather name="message-circle" size={20} color="#2E38F2" />
           <Text style={styles.actionText}>
             Comment ({item.comments_count || 0})
           </Text>
         </TouchableOpacity>
+
         <TouchableOpacity style={styles.actionBtn}>
           <Feather name="calendar" size={20} color="#2E38F2" />
           <Text style={styles.actionText}>{formattedDate}</Text>
@@ -149,10 +149,33 @@ function PostItem({ item }: { item: Post }) {
 
 // ---------------- Main ----------------
 export default function Main() {
-  const { posts } = useContext(DataContext);
+  const { posts, setPosts } = useContext(DataContext);
   const { user } = useContext(AuthContext);
   const [filteredPosts, setFilteredPosts] = useState<Post[]>([]);
 
+  // Escuchar likes realtime
+  useEffect(() => {
+    const channel = supabase
+      .channel("posts-realtime")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "posts" },
+        (payload) => {
+          setPosts((prev: any) =>
+            prev.map((p) =>
+              p.id === payload.new ? { ...p, ...payload.new } : p
+            )
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [setPosts]);
+
+  // Filtrar posts (no propios)
   useEffect(() => {
     if (user) {
       const fp = posts.filter((p) => p.user_id !== user.id);
