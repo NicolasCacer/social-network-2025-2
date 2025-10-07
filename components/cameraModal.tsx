@@ -87,7 +87,7 @@ export default function CameraModal({ visible, onClose, onSelect }: Props) {
 
   const pickImage = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["images"],
+      mediaTypes: ["images", "videos", "livePhotos"],
       allowsEditing: true,
     });
 

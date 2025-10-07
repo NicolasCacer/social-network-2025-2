@@ -1,7 +1,8 @@
 import { DataContext } from "@/context/DataContext";
 import { Feather } from "@expo/vector-icons";
+import { useIsFocused } from "@react-navigation/native";
 import { VideoView, useVideoPlayer } from "expo-video";
-import { useContext, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -29,9 +30,18 @@ function PostItem({ item }: { item: Post }) {
   const { likePost } = useContext(DataContext);
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const [isPlaying, setIsPlaying] = useState(false);
+  const isFocused = useIsFocused();
   const player = useVideoPlayer(item.media_url || "", (p) => {
     p.loop = true;
   });
+
+  // Pausar video automáticamente si la pantalla no está enfocada
+  useEffect(() => {
+    if (!isFocused && isPlaying) {
+      player.pause();
+      setIsPlaying(false);
+    }
+  }, [isFocused, isPlaying, player]);
 
   const togglePlayPause = () => {
     if (!item.media_url?.endsWith(".mp4")) return; // solo video
@@ -42,6 +52,7 @@ function PostItem({ item }: { item: Post }) {
       player.play();
       setIsPlaying(true);
     }
+
     fadeAnim.setValue(1);
     Animated.timing(fadeAnim, {
       toValue: 0,
@@ -57,27 +68,46 @@ function PostItem({ item }: { item: Post }) {
         <Image source={{ uri: item.avatar }} style={styles.avatar} />
         <Text style={styles.username}>{item.user_name}</Text>
       </View>
-
       {/* Content */}
-      <Text style={styles.content}>{item.content}</Text>
+      <View style={styles.textContainer}>
+        <Text style={styles.content}>{item.content}</Text>
+      </View>
 
-      {/* Post media */}
       {item.media_url && item.media_url.endsWith(".mp4") ? (
         <TouchableWithoutFeedback onPress={togglePlayPause}>
           <View style={styles.postMediaContainer}>
             <VideoView
               player={player}
-              style={styles.postMedia} // <-- usamos estilo escalado
+              style={styles.postMedia}
               contentFit="cover"
               allowsPictureInPicture={false}
-              nativeControls={true}
+              nativeControls={false} // ocultamos los controles nativos
             />
+
+            {/* Overlay de Play */}
+            {!isPlaying && (
+              <View style={styles.playOverlay}>
+                <View style={styles.playButton}>
+                  <Feather
+                    name="play"
+                    size={36}
+                    color="#fff"
+                    style={{ marginLeft: 6 }}
+                  />
+                </View>
+              </View>
+            )}
           </View>
         </TouchableWithoutFeedback>
       ) : item.media_url ? (
-        <Image source={{ uri: item.media_url }} style={styles.postMedia} />
+        <View style={styles.postMediaContainer}>
+          <Image
+            source={{ uri: item.media_url }}
+            style={styles.postMedia}
+            resizeMode="cover"
+          />
+        </View>
       ) : null}
-
       {/* Actions */}
       <View style={styles.actions}>
         <TouchableOpacity
@@ -152,35 +182,27 @@ const styles = StyleSheet.create({
     color: "#333640",
   },
   content: {
-    marginBottom: 8,
+    marginBottom: 10,
     color: "#333640",
+    fontSize: 16,
+    lineHeight: 22,
   },
+
   postMediaContainer: {
     width: "100%",
-    height: 180,
-    borderRadius: 10,
+    height: 200,
+    borderRadius: 12,
     overflow: "hidden",
-    marginBottom: 10,
+    marginBottom: 12,
+    backgroundColor: "#e0e0e0", // fondo neutro mientras carga
   },
+
   postMedia: {
     width: "100%",
     height: "100%",
+    borderRadius: 12,
   },
-  iconOverlay: {
-    position: "absolute",
-    top: "40%",
-    left: 0,
-    right: 0,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  iconBackground: {
-    backgroundColor: "rgba(0,0,0,0.5)",
-    borderRadius: 50,
-    padding: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+
   actions: {
     flexDirection: "row",
     justifyContent: "space-around",
@@ -194,5 +216,38 @@ const styles = StyleSheet.create({
     color: "#2E38F2",
     fontWeight: "600",
     marginLeft: 4,
+  },
+  playOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.5)",
+  },
+
+  playButton: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  textContainer: {
+    backgroundColor: "#e0e0e0",
+    borderRadius: 10,
+    paddingVertical: 8, // espacio arriba y abajo
+    paddingHorizontal: 12, // espacio a los lados
+    marginBottom: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+    justifyContent: "center",
+    alignItems: "flex-start", // mantiene el texto a la izquierda
   },
 });
