@@ -347,6 +347,8 @@ export const DataProvider = ({ children }: { children: React.ReactNode }) => {
         media_url: p.media_url,
         likes_count: p.likes_count,
         comments_count: p.comments_count,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
       }));
 
       setPosts(mappedPosts);

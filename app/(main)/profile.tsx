@@ -1,6 +1,7 @@
+import { DataContext } from "@/context/DataContext";
 import { supabase } from "@/utils/supabase";
 import { useRouter } from "expo-router";
-import { useEffect, useState } from "react";
+import { useContext, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -25,15 +26,10 @@ type ProfileData = {
   posts_count: number;
 };
 
-// Temporary mocked posts
-const posts = [
-  { id: "1", image: "https://picsum.photos/300/200" },
-  { id: "2", image: "https://picsum.photos/301/200" },
-  { id: "3", image: "https://picsum.photos/302/200" },
-];
-
 export default function Profile() {
   const router = useRouter();
+  const { posts, getPosts } = useContext(DataContext);
+
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -67,11 +63,13 @@ export default function Profile() {
     setLoading(false);
   };
 
+  // Load profile & posts
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null;
 
     const init = async () => {
       await loadProfile();
+      await getPosts(); // <-- cargar posts reales del contexto
 
       const {
         data: { user },
@@ -84,7 +82,7 @@ export default function Profile() {
         .on(
           "postgres_changes",
           {
-            event: "UPDATE",
+            event: "*",
             schema: "public",
             table: "profiles",
             filter: `id=eq.${user.id}`,
@@ -106,6 +104,7 @@ export default function Profile() {
     return () => {
       if (channel) supabase.removeChannel(channel);
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (loading) {
@@ -174,17 +173,55 @@ export default function Profile() {
       </View>
 
       {/* User posts section */}
-      <Text style={styles.sectionTitle}>My Posts</Text>
-      <FlatList
-        data={posts}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <Image source={{ uri: item.image }} style={styles.postImage} />
+      <View style={{ marginBottom: 20 }}>
+        <Text style={styles.sectionTitle}>My Posts</Text>
+
+        {posts.filter((p) => p.user_id === profile?.id).length === 0 ? (
+          <Text style={{ textAlign: "center", marginTop: 10, color: "#555" }}>
+            No tienes posts aún.
+          </Text>
+        ) : (
+          <FlatList
+            data={posts.filter((p) => p.user_id === profile?.id)}
+            keyExtractor={(item) => item.id}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.postsRow}
+            renderItem={({ item }) => {
+              const date = new Date(item.created_at);
+              const formattedDate = `${date
+                .getDate()
+                .toString()
+                .padStart(2, "0")}/${(date.getMonth() + 1)
+                .toString()
+                .padStart(2, "0")}/${date.getFullYear()}`;
+
+              return (
+                <View style={styles.postCard}>
+                  {/* Foto si existe */}
+                  {item.media_url && (
+                    <Image
+                      source={{ uri: item.media_url }}
+                      style={styles.postImage}
+                    />
+                  )}
+
+                  {/* Contenido de texto */}
+                  <Text style={styles.postContent}>{item.content}</Text>
+
+                  {/* Likes y fecha */}
+                  <View style={styles.postFooter}>
+                    <Text style={styles.postLikes}>
+                      ❤️ {item.likes_count || 0}
+                    </Text>
+                    <Text style={styles.postDate}>{formattedDate}</Text>
+                  </View>
+                </View>
+              );
+            }}
+          />
         )}
-        horizontal
-        showsHorizontalScrollIndicator={true}
-        contentContainerStyle={styles.postsRow}
-      />
+      </View>
     </ScrollView>
   );
 }
@@ -272,6 +309,36 @@ const styles = StyleSheet.create({
     width: 200,
     height: 200,
     borderRadius: 10,
+    paddingRight: 5,
+    marginBottom: 10,
+  },
+  postCard: {
+    width: 220,
     marginRight: 12,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    padding: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  postContent: {
+    fontSize: 14,
+    color: "#333",
+    marginBottom: 8,
+  },
+  postFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  postLikes: {
+    fontSize: 12,
+    color: "#888",
+  },
+  postDate: {
+    fontSize: 12,
+    color: "#888",
   },
 });
